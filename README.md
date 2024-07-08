@@ -30,6 +30,10 @@ cd cuzradio
 yarn install
 
 yarn dev
+
+to run tests
+
+yarn test
 ```
 
 ## User Routes
