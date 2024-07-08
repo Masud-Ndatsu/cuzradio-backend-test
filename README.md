@@ -30,9 +30,11 @@ cd cuzradio
 yarn install
 
 yarn dev
+```
 
-to run tests
+## To run tests
 
+```
 yarn test
 ```
 
