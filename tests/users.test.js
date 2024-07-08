@@ -1,20 +1,36 @@
 const request = require("supertest");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const app = require("../app");
 const userRepo = require("../repository/user.repository");
 const { connectDB, disconnectDB } = require("../config/database");
+const { generateAccessToken } = require("../utils/encryption");
 
 jest.mock("../repository/user.repository");
 
 beforeAll(async () => {
      await connectDB();
 });
-let token;
+
 afterAll(async () => {
      await disconnectDB();
 });
 
 describe("User Controller Tests", () => {
+     let token;
+
+     beforeEach(async () => {
+          await userRepo.createUser({
+               _id: "testUserId",
+               firstName: "Admin",
+               lastName: "User",
+               email: "admin@example.com",
+               password: "password123",
+               role: "admin",
+          });
+          token = generateAccessToken({ userId: "testUserId" });
+     });
+
      describe("POST /register", () => {
           it("should register a new user", async () => {
                userRepo.GetUserByEmail.mockResolvedValue(null);
@@ -27,7 +43,7 @@ describe("User Controller Tests", () => {
                          lastName: "Doe",
                          email: "john.doe@example.com",
                          password: "password123",
-                         role: "admin",
+                         role: "user",
                     });
 
                expect(response.statusCode).toBe(201);
@@ -48,7 +64,7 @@ describe("User Controller Tests", () => {
                          lastName: "Doe",
                          email: "john.doe@example.com",
                          password: "password123",
-                         role: "admin",
+                         role: "user",
                     });
 
                expect(response.statusCode).toBe(400);
@@ -71,8 +87,7 @@ describe("User Controller Tests", () => {
                          email: "john.doe@example.com",
                          password: "password123",
                     });
-               console.log(response.body);
-               token = response.body.data;
+
                expect(response.statusCode).toBe(200);
                expect(response.body.message).toBe("Loggin successfully");
           });
@@ -99,7 +114,7 @@ describe("User Controller Tests", () => {
                     firstName: "John",
                     lastName: "Doe",
                     email: "john.doe@example.com",
-                    role: "admin",
+                    status: "active",
                });
 
                const response = await request(app)
@@ -122,7 +137,7 @@ describe("User Controller Tests", () => {
           });
      });
 
-     describe("GET /users", () => {
+     describe("GET /", () => {
           it("should get all users", async () => {
                userRepo.GetUsers.mockResolvedValue([
                     { _id: "userId1", email: "john.doe1@example.com" },
@@ -138,7 +153,7 @@ describe("User Controller Tests", () => {
           });
      });
 
-     describe("PUT /user/:id/change-status", () => {
+     describe("PUT /:id/change-status", () => {
           it("should change user status", async () => {
                userRepo.GetUserById.mockResolvedValue({
                     _id: "userId",
@@ -168,7 +183,7 @@ describe("User Controller Tests", () => {
           });
      });
 
-     describe("PUT /users/:id/change-role", () => {
+     describe("PUT /:id/change-role", () => {
           it("should update user role", async () => {
                userRepo.GetUserById.mockResolvedValue({
                     _id: "userId",
@@ -198,7 +213,7 @@ describe("User Controller Tests", () => {
           });
      });
 
-     describe("DELETE /users/:id", () => {
+     describe("DELETE /:id", () => {
           it("should delete user account", async () => {
                userRepo.GetUserById.mockResolvedValue({
                     _id: "userId",

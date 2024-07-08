@@ -20,6 +20,18 @@ This API provides routes for managing users and posts, with authentication and a
      -    [Delete Post by ID](#delete-post-by-id)
 -    [Authentication and Authorization](#authentication-and-authorization)
 
+## SETUP
+
+Clone this git repository
+
+```
+cd cuzradio
+
+yarn install
+
+yarn dev
+```
+
 ## User Routes
 
 ### Register User
