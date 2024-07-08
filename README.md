@@ -1,6 +1,8 @@
 # API Documentation
 
 This API provides routes for managing users and posts, with authentication and authorization mechanisms in place.
+For the completion of this task please use the following frameworks
+(ExpressJS, NodeJS, MongoDB) (latest stable versions)
 
 ## Table of Contents
 
