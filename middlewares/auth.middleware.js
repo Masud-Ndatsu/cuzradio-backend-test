@@ -24,14 +24,6 @@ const authenticate = async (req, res, next) => {
                });
           }
 
-          if (user.status === "inactive") {
-               return res.status(401).json({
-                    status: false,
-                    data: null,
-                    message: "You have been deactivated!",
-               });
-          }
-
           req.user = user;
           next();
      } catch (error) {
@@ -51,6 +43,14 @@ const checkPermission = (roles) => {
                          status: false,
                          data: null,
                          message: "Forbidden",
+                    });
+               }
+
+               if (req.user.status === "inactive") {
+                    return res.status(403).json({
+                         status: false,
+                         data: null,
+                         message: "You have been deactivated!",
                     });
                }
                next();

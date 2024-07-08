@@ -1,12 +1,10 @@
 const request = require("supertest");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const app = require("../app");
-const userRepo = require("../repository/user.repository");
 const { connectDB, disconnectDB } = require("../config/database");
-const { generateAccessToken } = require("../utils/encryption");
-
-jest.mock("../repository/user.repository");
+const { generateAccessToken, hashPassword } = require("../utils/encryption");
+const UsersModel = require("../models/user.model");
+const mongoose = require("mongoose");
 
 beforeAll(async () => {
      await connectDB();
@@ -18,30 +16,42 @@ afterAll(async () => {
 
 describe("User Controller Tests", () => {
      let token;
+     let userMock, userMock2;
 
      beforeEach(async () => {
-          await userRepo.createUser({
-               _id: "testUserId",
-               firstName: "Admin",
-               lastName: "User",
-               email: "admin@example.com",
-               password: "password123",
+          userMock = new UsersModel({
+               firstName: "John",
+               lastName: "Doe",
+               email: "john.doe@example.com",
+               password: await hashPassword("password123"),
                role: "admin",
+               status: "active",
           });
-          token = generateAccessToken({ userId: "testUserId" });
+          userMock2 = new UsersModel({
+               firstName: "John",
+               lastName: "Doe",
+               email: "john.doe2@example.com",
+               password: await hashPassword("password123"),
+               role: "user",
+               status: "active",
+          });
+          await userMock.save();
+          await userMock2.save();
+          token = generateAccessToken({ userId: userMock._id });
+     });
+
+     afterEach(async () => {
+          await UsersModel.deleteMany({});
      });
 
      describe("POST /register", () => {
           it("should register a new user", async () => {
-               userRepo.GetUserByEmail.mockResolvedValue(null);
-               userRepo.createUser.mockResolvedValue(true);
-
                const response = await request(app)
                     .post("/api/users/register")
                     .send({
-                         firstName: "John",
+                         firstName: "Jane",
                          lastName: "Doe",
-                         email: "john.doe@example.com",
+                         email: "jane.doe@example.com",
                          password: "password123",
                          role: "user",
                     });
@@ -53,14 +63,10 @@ describe("User Controller Tests", () => {
           });
 
           it("should not register a user if email already exists", async () => {
-               userRepo.GetUserByEmail.mockResolvedValue({
-                    email: "john.doe@example.com",
-               });
-
                const response = await request(app)
                     .post("/api/users/register")
                     .send({
-                         firstName: "John",
+                         firstName: "Jane",
                          lastName: "Doe",
                          email: "john.doe@example.com",
                          password: "password123",
@@ -74,13 +80,6 @@ describe("User Controller Tests", () => {
 
      describe("POST /login", () => {
           it("should login a user", async () => {
-               const hashedPassword = await bcrypt.hash("password123", 10);
-               userRepo.GetUserByEmail.mockResolvedValue({
-                    _id: "userId",
-                    email: "john.doe@example.com",
-                    password: hashedPassword,
-               });
-
                const response = await request(app)
                     .post("/api/users/login")
                     .send({
@@ -93,12 +92,10 @@ describe("User Controller Tests", () => {
           });
 
           it("should not login a user with invalid email", async () => {
-               userRepo.GetUserByEmail.mockResolvedValue(null);
-
                const response = await request(app)
                     .post("/api/users/login")
                     .send({
-                         email: "john.doe@example.com",
+                         email: "nonexistent@example.com",
                          password: "password123",
                     });
 
@@ -109,136 +106,155 @@ describe("User Controller Tests", () => {
 
      describe("GET /profile", () => {
           it("should get user profile", async () => {
-               userRepo.GetUserById.mockResolvedValue({
-                    _id: "userId",
-                    firstName: "John",
-                    lastName: "Doe",
-                    email: "john.doe@example.com",
-                    status: "active",
-               });
-
                const response = await request(app)
                     .get("/api/users/profile")
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(200);
                expect(response.body.message).toBe("Retrieved successfully");
+               expect(response.body.data.email).toBe(userMock.email);
           });
 
-          it("should return 404 if user not found", async () => {
-               userRepo.GetUserById.mockResolvedValue(null);
-
+          it("should return 401 if user not found", async () => {
+               await UsersModel.deleteMany({});
                const response = await request(app)
                     .get("/api/users/profile")
                     .set("Authorization", `Bearer ${token}`);
 
-               expect(response.statusCode).toBe(404);
-               expect(response.body.message).toBe("User not found");
+               expect(response.statusCode).toBe(401);
+               expect(response.body.message).toBe("Unauthorized");
           });
      });
 
      describe("GET /", () => {
           it("should get all users", async () => {
-               userRepo.GetUsers.mockResolvedValue([
-                    { _id: "userId1", email: "john.doe1@example.com" },
-                    { _id: "userId2", email: "john.doe2@example.com" },
-               ]);
-
                const response = await request(app)
                     .get("/api/users")
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(200);
                expect(response.body.message).toBe("Retrieved successfully");
+               expect(response.body.data.length).toBeGreaterThan(0);
           });
      });
 
      describe("PUT /:id/change-status", () => {
           it("should change user status", async () => {
-               userRepo.GetUserById.mockResolvedValue({
-                    _id: "userId",
-                    status: "active",
-                    role: "user",
-               });
-
+               const userId = userMock2._id.toString();
                const response = await request(app)
-                    .put("/api/users/userId/change-status")
+                    .put(`/api/users/${userId}/change-status`)
                     .send({ status: "inactive" })
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(200);
                expect(response.body.message).toBe("Deactivated successfully");
+               const updatedUser = await UsersModel.findById(userId);
+               expect(updatedUser.status).toBe("inactive");
           });
 
           it("should return 404 if user not found", async () => {
-               userRepo.GetUserById.mockResolvedValue(null);
-
                const response = await request(app)
-                    .put("/api/users/userId/change-status")
+                    .put(
+                         `/api/users/${new mongoose.Types.ObjectId()}/change-status`
+                    )
                     .send({ status: "inactive" })
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(404);
                expect(response.body.message).toBe("User not found!");
           });
+
+          it("should return 403 if user does not have permission", async () => {
+               userMock.role = "user";
+               await userMock.save();
+               token = generateAccessToken({ userId: userMock._id });
+
+               const response = await request(app)
+                    .put(`/api/users/${userMock._id}/change-status`)
+                    .send({ status: "inactive" })
+                    .set("Authorization", `Bearer ${token}`);
+
+               expect(response.statusCode).toBe(403);
+               expect(response.body.message).toBe("Forbidden");
+          });
      });
 
      describe("PUT /:id/change-role", () => {
           it("should update user role", async () => {
-               userRepo.GetUserById.mockResolvedValue({
-                    _id: "userId",
-                    role: "user",
-                    status: "active",
-               });
-
+               const userId = userMock._id.toString();
                const response = await request(app)
-                    .put("/api/users/userId/change-role")
+                    .put(`/api/users/${userId}/change-role`)
                     .send({ role: "admin" })
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(200);
                expect(response.body.message).toBe("Role updated successfully");
+               const updatedUser = await UsersModel.findById(userId);
+               expect(updatedUser.role).toBe("admin");
           });
 
           it("should return 404 if user not found", async () => {
-               userRepo.GetUserById.mockResolvedValue(null);
-
                const response = await request(app)
-                    .put("/api/users/userId/change-role")
+                    .put(
+                         `/api/users/${new mongoose.Types.ObjectId()}/change-role`
+                    )
                     .send({ role: "admin" })
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(404);
                expect(response.body.message).toBe("User not found");
           });
+
+          it("should return 403 if user does not have permission", async () => {
+               userMock.role = "user";
+               await userMock.save();
+               token = generateAccessToken({ userId: userMock._id });
+
+               const response = await request(app)
+                    .put(`/api/users/${userMock._id}/change-role`)
+                    .send({ role: "admin" })
+                    .set("Authorization", `Bearer ${token}`);
+
+               expect(response.statusCode).toBe(403);
+               expect(response.body.message).toBe("Forbidden");
+          });
      });
 
      describe("DELETE /:id", () => {
           it("should delete user account", async () => {
-               userRepo.GetUserById.mockResolvedValue({
-                    _id: "userId",
-                    email: "john.doe@example.com",
-               });
-
+               const userId = userMock._id.toString();
                const response = await request(app)
-                    .delete("/api/users/userId")
+                    .delete(`/api/users/${userId}`)
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(200);
                expect(response.body.message).toBe(
                     "Account deleted successfully"
                );
+               const deletedUser = await UsersModel.findById(userId);
+               expect(deletedUser).toBeNull();
           });
 
           it("should return 404 if user not found", async () => {
-               userRepo.GetUserById.mockResolvedValue(null);
-
                const response = await request(app)
-                    .delete("/api/users/userId")
+                    .delete(`/api/users/${new mongoose.Types.ObjectId()}`)
                     .set("Authorization", `Bearer ${token}`);
 
                expect(response.statusCode).toBe(404);
                expect(response.body.message).toBe("User not found");
+          });
+
+          it("should return 403 if user does not have permission", async () => {
+               userMock.role = "moderator";
+               await userMock.save();
+               token = generateAccessToken({ userId: userMock._id });
+
+               const response = await request(app)
+                    .delete(`/api/users/${userMock._id}`)
+                    .set("Authorization", `Bearer ${token}`);
+
+               expect(response.statusCode).toBe(403);
+               expect(response.body.message).toBe("Forbidden");
           });
      });
 });
