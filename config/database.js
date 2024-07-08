@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
-
-const DB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/cuzradio";
+const env = process.env.NODE_ENV;
+const DB_URI =
+     env === "prod"
+          ? process.env.MONGODB_URI_PROD
+          : env === "test"
+          ? process.env.MONGODB_URI_TEST
+          : process.env.MONGODB_URI || "mongodb://localhost:27017/cuzradio";
 const connectDB = async () => {
      try {
           await mongoose.connect(DB_URI).then(() => {
@@ -14,4 +19,13 @@ const connectDB = async () => {
      }
 };
 
-module.exports = { connectDB };
+const disconnectDB = async () => {
+     try {
+          await mongoose.connection.close();
+          console.log("MongoDB disconnected successfully.");
+     } catch (err) {
+          console.error("MongoDB disconnection error:", err);
+     }
+};
+
+module.exports = { connectDB, disconnectDB };

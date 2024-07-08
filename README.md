@@ -9,7 +9,8 @@ This API provides routes for managing users and posts, with authentication and a
      -    [Login User](#login-user)
      -    [Get All Users](#get-all-users)
      -    [Get User by ID](#get-user-by-id)
-     -    [Update User by ID](#update-user-by-id)
+     -    [Change User Status](#change-user-status)
+     -    [Change User Role](#change-user-role)
      -    [Delete User by ID](#delete-user-by-id)
 -    [Post Routes](#post-routes)
      -    [Create a Post](#create-a-post)
@@ -33,12 +34,7 @@ This API provides routes for managing users and posts, with authentication and a
           "lastName": "string",
           "email": "string",
           "password": "string",
-          "roles": [
-               {
-                    "name": "string",
-                    "permissions": ["string"]
-               }
-          ]
+          "role": "admin" || "moderator" || "user",
      }
      ```
 
@@ -64,7 +60,7 @@ This API provides routes for managing users and posts, with authentication and a
 
 -    **URL**: `/users`
 -    **Method**: `GET`
--    **Middleware**: authenticate, checkPermission("viewUsers")
+-    **Middleware**: authenticate, checkPermission(["admin", "moderator"])
 -    **Description**: Login a user.
 -    **Request Body**:
 -    **Responses**:
@@ -75,41 +71,47 @@ This API provides routes for managing users and posts, with authentication and a
      403 Forbidden: User does not have permission to view users.
 ```
 
-### Get User by ID
+### Get User Profile
 
--    **URL**: /users/:id
+-    **URL**: /users/profile
 -    **Method**: GET
--    **Middleware**: authenticate, checkPermission("viewUser")
+-    **Middleware**: authenticate, checkPermission(["admin", "moderator", "user"])
 -    **Description**: Retrieves a user by their ID. -
 -    **Responses**:
 
 ```
 200 OK: User successfully retrieved.
 401 Unauthorized: User not authenticated.
-403 Forbidden: User does not have permission to view the user.
 404 Not Found: User not found.
 ```
 
-### Update User by ID
+### Change User Status
 
-**URL**: /users/:id
-**Method**: PUT
-**Middleware**: authenticate, checkPermission("updateUser")
-**Description**: Updates a user by their ID.
-**Request Body**:
+-    **URL**: /users/:id/change-status
+-    **Method**: PUT
+-    **Middleware**: authenticate, checkPermission(["admin", "moderator"])
+-    **Description**: Updates a user by their ID.
+-    **Request Body**:
 
 ```json
 {
-     "firstName": "string",
-     "lastName": "string",
-     "email": "string",
-     "roles": [
-          {
-               "name": "string",
-               "permissions": ["string"]
-          }
-     ],
-     "suspended": "boolean"
+
+     "status": "active" || "inactive"
+}
+```
+
+### Change User Role
+
+-    **URL**: /users/:id/change-role
+-    **Method**: PUT
+-    **Middleware**: authenticate, checkPermission(["admin", "moderator"])
+-    **Description**: Updates a role by their ID.
+-    **Request Body**:
+
+```json
+{
+
+     "role": "admin" || "moderator" || "user"
 }
 ```
 
@@ -151,7 +153,6 @@ This API provides routes for managing users and posts, with authentication and a
 
 -    **URL**: /posts
 -    **Method**: GET
--    **Middleware**: authenticate
 -    **Description**: Retrieves all posts.
 -    **Responses**:
 
@@ -165,7 +166,6 @@ This API provides routes for managing users and posts, with authentication and a
 
 -    **URL**: /posts/:id
 -    **Method**: GET
--    **Middleware**: authenticate
 -    **Description**: Retrieves a post by their ID.
 -    **Responses**:
 
@@ -229,14 +229,12 @@ This API provides routes for managing users and posts, with authentication and a
 -    **Purpose**: Checks if the authenticated user has the required permissions to access the route.
 -    **Usage**: Applied to routes that require specific permissions.
 
-### Permissions
+### Roles
 
--    **viewUsers**: Allows viewing all users.
--    **viewUser**: Allows viewing a specific user.
--    **viewReports**: Allows viewing of user statics.
--    **updateUser**: Allows updating a user.
--    **suspendUser**: Allows suspending a user.
--    **deleteUser**: Allows deleting a user.
+-    **admin**: Allows viewing all users.
+-    **moderator**: Allows viewing a specific user.
+-    **user**: Allows viewing of user statics.
+
 -    **Error Responses**
 
 ```
