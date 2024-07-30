@@ -262,3 +262,11 @@ yarn test
 403 Forbidden: Returned when the user does not have the required permissions.
 404 Not Found: Returned when the requested resource is not found.
 ```
+
+### CLI
+
+You can use the following commands to create an admin account
+
+```sh
+node scripts/create-admin.js create-admin --firstName Admin --lastName User --email admin@app.com --password adminuser --role admin
+```
